@@ -1,0 +1,6 @@
+{
+  "watch": ["dist"],
+  "ext": "ts,json",
+  "ignore": ["dist/**/*.spec.ts"],
+  "exec": "ts-node ./dist/index.ts"
+}
