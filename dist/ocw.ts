@@ -1,7 +1,7 @@
 import request from 'superagent';
 
 interface Profile {
-  username: string;
+  email: string;
   password: string;
   longitude?: string;
   latitude?: string;
@@ -30,17 +30,17 @@ export class OCW {
       .post('https://sso.uns.ac.id/module.php/core/loginuserpass.php?')
       .type('form')
       .send({ AuthState: authState })
-      .send({ username: this.profile.username })
+      .send({ username: this.profile.email })
       .send({ password: this.profile.password });
 
-    // console.log(login.text);
+    // console.log(login.header['set-cookie']);
 
     const regexSamlResponse = new RegExp(
       '<input type="hidden" name="SAMLResponse" value="(.*?)"'
     );
     this.samlResponse = regexSamlResponse.exec(login.text)[1];
 
-    //   console.log(samlResponse);
+    console.log(this.samlResponse);
   }
 
   private async checkLogin(): Promise<boolean> {
@@ -74,7 +74,7 @@ export class OCW {
       console.log('Mencoba Absen');
       await this.createAbsen(checkAbsen);
     }
-    console.log('Absen Berhasil');
+    console.log('Job Berhasil');
   }
 
   private async checkAbsen(): Promise<boolean | string> {
@@ -105,14 +105,36 @@ export class OCW {
     );
     console.log(absenPanel.text);
 
-    const regexPresensi = new RegExp(
+    const regexAbsenPanel = new RegExp(
       '<p>Kehadiran Anda: ALPHA</p>\n.*<a class="btn btn-default" href="(.*)">Presensi Disini</a>'
     );
-    if (regexPresensi.test(absenPanel.text)) {
-      const presensi = await this.agent.get(
-        'https://ocw.uns.ac.id/' + regexPresensi.exec(absenPanel.text)[1]
+    if (regexAbsenPanel.test(absenPanel.text)) {
+      const presensiPage = await this.agent.get(
+        'https://ocw.uns.ac.id/' + regexAbsenPanel.exec(absenPanel.text)[1]
       );
-      console.log(presensi.text);
+      // console.log(presensiPage.text);
+      const regexIdPresensi = new RegExp('let idMstPresensi = "(.*)"');
+
+      if (regexIdPresensi.test(presensiPage.text)) {
+        const idPresensi = regexIdPresensi.exec(presensiPage.text)[1];
+        const absen = await this.agent
+          .post(
+            `https://siakad.uns.ac.id/services/v1/presensi/update-presensi-mhs-daring?id=${idPresensi}`
+          )
+          .type('form')
+          .send({
+            nim: 'M0520008',
+            latitude: this.profile?.latitude
+              ? this.profile.latitude
+              : '-6.2087634',
+            longitude: this.profile?.longitude
+              ? this.profile.longitude
+              : '106.845599',
+            KESEHATAN: 'SEHAT',
+            nimLogin: 'M0520008',
+          });
+        console.log(absen.text);
+      }
     }
     return false;
   }
