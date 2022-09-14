@@ -6,8 +6,8 @@
   "private": true,
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon dist/index.ts",
-    "build": "tsc && webpack -c webpack.config.js"
+    "start": "node src/index.js",
+    "build": "tsc"
   },
   "author": "",
   "license": "ISC",
