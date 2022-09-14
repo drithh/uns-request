@@ -11,13 +11,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OCW = void 0;
 class OCW {
-    constructor(agent, profile) {
+    constructor(bot, chatId, agent, profile) {
+        this.bot = bot;
+        this.chatId = chatId;
         this.agent = agent;
         this.profile = profile;
     }
     login() {
         return __awaiter(this, void 0, void 0, function* () {
+            this.sendMessage('loginPage');
             const loginPage = yield this.agent.get('https://ocw.uns.ac.id/saml/login');
+            this.sendMessage(loginPage.text);
             const regexAuthState = new RegExp('<input type="hidden" name="AuthState" value="(.*?)"');
             const authState = regexAuthState.exec(loginPage.text)[1];
             const login = yield this.agent
@@ -28,11 +32,11 @@ class OCW {
                 .send({ password: this.profile.password });
             const regexSamlResponse = new RegExp('<input type="hidden" name="SAMLResponse" value="(.*?)"');
             this.samlResponse = regexSamlResponse.exec(login.text)[1];
-            console.log(this.samlResponse);
         });
     }
     checkLogin() {
         return __awaiter(this, void 0, void 0, function* () {
+            this.sendMessage('Mengecek Login');
             if (this.samlResponse) {
                 const samlAuth = yield this.agent
                     .post('https://ocw.uns.ac.id/saml/acs')
@@ -48,22 +52,24 @@ class OCW {
     }
     auth() {
         return __awaiter(this, void 0, void 0, function* () {
-            while ((yield this.checkLogin()) === false) {
-                yield this.login();
-                console.log('Mencoba Login');
-            }
-            console.log('Login Success');
+            yield this.login();
+            this.sendMessage('Login Berhasil');
+            this.sendMessage('Login Berhasil');
         });
+    }
+    sendMessage(message) {
+        this.bot.telegram.sendMessage(this.chatId, message);
     }
     absen() {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.auth();
+            this.sendMessage('Auth Berhasil');
             const checkAbsen = yield this.checkAbsen();
             if (typeof checkAbsen === 'string') {
-                console.log('Mencoba Absen');
+                this.sendMessage('Mencoba Absen');
                 yield this.createAbsen(checkAbsen);
             }
-            console.log('Job Berhasil');
+            this.sendMessage('Job Berhasil');
         });
     }
     checkAbsen() {
@@ -74,11 +80,11 @@ class OCW {
                 const link = regexKuliahBerlangsung
                     .exec(kuliahBerlangsung.text)[1]
                     .replaceAll('&amp;', '&');
-                console.log('Absen Tersedia');
+                this.sendMessage('Absen Tersedia');
                 return link;
             }
             else {
-                console.log('Absen Tidak Tersedia');
+                this.sendMessage('Absen Tidak Tersedia');
                 return false;
             }
         });
@@ -87,7 +93,6 @@ class OCW {
         var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
             const absenPanel = yield this.agent.get('https://ocw.uns.ac.id/presensi-online-mahasiswa/view' + link);
-            console.log(absenPanel.text);
             const regexAbsenPanel = new RegExp('<p>Kehadiran Anda: ALPHA</p>\n.*<a class="btn btn-default" href="(.*)">Presensi Disini</a>');
             if (regexAbsenPanel.test(absenPanel.text)) {
                 const presensiPage = yield this.agent.get('https://ocw.uns.ac.id/' + regexAbsenPanel.exec(absenPanel.text)[1]);
@@ -99,12 +104,8 @@ class OCW {
                         .type('form')
                         .send({
                         nim: 'M0520008',
-                        latitude: ((_a = this.profile) === null || _a === void 0 ? void 0 : _a.latitude)
-                            ? this.profile.latitude
-                            : '-6.2087634',
-                        longitude: ((_b = this.profile) === null || _b === void 0 ? void 0 : _b.longitude)
-                            ? this.profile.longitude
-                            : '106.845599',
+                        latitude: (_a = this.profile) === null || _a === void 0 ? void 0 : _a.latitude,
+                        longitude: (_b = this.profile) === null || _b === void 0 ? void 0 : _b.longitude,
                         KESEHATAN: 'SEHAT',
                         nimLogin: 'M0520008',
                     });

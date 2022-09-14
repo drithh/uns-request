@@ -1,33 +1,63 @@
 import { Telegraf } from 'telegraf';
-// const { Application, Router } = require('@cfworker/web');
-// const createTelegrafMiddleware = require('cfworker-middleware-telegraf');
+import request from 'superagent';
 import * as dotenv from 'dotenv';
+import { OCW } from './ocw';
+import { getConfig } from './config';
+const { Application, Router } = require('@cfworker/web');
+const createTelegrafMiddleware = require('cfworker-middleware-telegraf');
+
 dotenv.config();
-// cloudflare path
-const secretPath = (global as any).SECRET_PATH || process.env.SECRET_PATH;
 
-// telegram bot token from @BotFather
-const apiToken = (global as any).BOT_TOKEN || process.env.BOT_TOKEN;
-
-// email and password for auth to ocw.uns.ac.id
-const userEmail = (global as any).USER_EMAIL || process.env.USER_EMAIL;
-const userPassword = (global as any).USER_PASSWORD || process.env.USER_PASSWORD;
-
-// telegram username
-const botOwner =
-  (global as any).TELEGRAM_USERNAME || process.env.TELEGRAM_USERNAME;
+const {
+  secretPath,
+  apiToken,
+  userEmail,
+  userPassword,
+  longitude,
+  latitude,
+  ownerUsername,
+} = getConfig();
 
 const bot = new Telegraf(apiToken);
+const agent = request.agent();
 
-bot.on('message', (ctx) => {
-  console.log(ctx.message);
-  if (ctx.message.from.username !== botOwner) {
+bot.on('text', (ctx) => {
+  if (ctx.message.from.username !== ownerUsername) {
     ctx.reply('Hello, stranger!\nSorry, I can only talk to my master.');
     return;
   }
+  switch (ctx.message.text) {
+    case '/absen':
+      ctx.reply('Absen...');
+      absen(bot, ctx.from.id);
+      break;
+    case '/profile':
+      ctx.reply(
+        `Your Profile:\nEmail: ${userEmail}\nPassword: ${userPassword}`
+      );
+      break;
+    case '/lokasi':
+      ctx.reply(
+        `Your Configured Location:\nLongitude: ${longitude}\nLatitude: ${latitude}`
+      );
+      ctx.sendLocation(parseFloat(latitude), parseFloat(longitude));
+      break;
+  }
 });
 
-bot.launch();
-// const router = new Router();
-// router.post(`/${secretPath}`, createTelegrafMiddleware(bot));
-// new Application().use(router.middleware).listen();
+const absen = async (bot: Telegraf, chatId: number) => {
+  const profile = {
+    email: userEmail,
+    password: userPassword,
+    longitude: longitude,
+    latitude: latitude,
+  };
+  const ocw = new OCW(bot, chatId, agent, profile);
+  await ocw.absen();
+};
+
+// bot.launch();
+
+const router = new Router();
+router.post(`/${secretPath}`, createTelegrafMiddleware(bot));
+new Application().use(router.middleware).listen();

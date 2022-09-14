@@ -1,14 +1,17 @@
 import request from 'superagent';
+import { Telegraf } from 'telegraf';
 
 interface Profile {
   email: string;
   password: string;
-  longitude?: string;
-  latitude?: string;
+  longitude: string;
+  latitude: string;
 }
 
 export class OCW {
   constructor(
+    private bot: Telegraf,
+    private chatId: number,
     private agent: request.SuperAgentStatic & request.Request,
     private profile: Profile
   ) {}
@@ -16,8 +19,11 @@ export class OCW {
   private samlResponse: string;
 
   private async login() {
+    this.sendMessage('loginPage');
+
     const loginPage = await this.agent.get('https://ocw.uns.ac.id/saml/login');
-    // console.log(loginPage.text);
+    // this.sendMessage(loginPage.text);
+    this.sendMessage(loginPage.text);
 
     const regexAuthState = new RegExp(
       '<input type="hidden" name="AuthState" value="(.*?)"'
@@ -40,10 +46,11 @@ export class OCW {
     );
     this.samlResponse = regexSamlResponse.exec(login.text)[1];
 
-    console.log(this.samlResponse);
+    // console.log(this.samlResponse);
   }
 
   private async checkLogin(): Promise<boolean> {
+    this.sendMessage('Mengecek Login');
     if (this.samlResponse) {
       const samlAuth = await this.agent
         .post('https://ocw.uns.ac.id/saml/acs')
@@ -58,23 +65,28 @@ export class OCW {
   }
 
   private async auth() {
-    while ((await this.checkLogin()) === false) {
-      await this.login();
-      console.log('Mencoba Login');
-    }
-    console.log('Login Success');
+    // while ((await this.checkLogin()) === false) {
+    await this.login();
+    this.sendMessage('Login Berhasil');
+    // }
+    this.sendMessage('Login Berhasil');
 
     //   console.log(samlAuth.text);
   }
 
+  private sendMessage(message: string) {
+    this.bot.telegram.sendMessage(this.chatId, message);
+  }
+
   async absen() {
     await this.auth();
+    this.sendMessage('Auth Berhasil');
     const checkAbsen = await this.checkAbsen();
     if (typeof checkAbsen === 'string') {
-      console.log('Mencoba Absen');
+      this.sendMessage('Mencoba Absen');
       await this.createAbsen(checkAbsen);
     }
-    console.log('Job Berhasil');
+    this.sendMessage('Job Berhasil');
   }
 
   private async checkAbsen(): Promise<boolean | string> {
@@ -91,10 +103,10 @@ export class OCW {
         .exec(kuliahBerlangsung.text)[1]
         .replaceAll('&amp;', '&');
 
-      console.log('Absen Tersedia');
+      this.sendMessage('Absen Tersedia');
       return link;
     } else {
-      console.log('Absen Tidak Tersedia');
+      this.sendMessage('Absen Tidak Tersedia');
       return false;
     }
   }
@@ -103,7 +115,7 @@ export class OCW {
     const absenPanel = await this.agent.get(
       'https://ocw.uns.ac.id/presensi-online-mahasiswa/view' + link
     );
-    console.log(absenPanel.text);
+    // console.log(absenPanel.text);
 
     const regexAbsenPanel = new RegExp(
       '<p>Kehadiran Anda: ALPHA</p>\n.*<a class="btn btn-default" href="(.*)">Presensi Disini</a>'
@@ -124,12 +136,8 @@ export class OCW {
           .type('form')
           .send({
             nim: 'M0520008',
-            latitude: this.profile?.latitude
-              ? this.profile.latitude
-              : '-6.2087634',
-            longitude: this.profile?.longitude
-              ? this.profile.longitude
-              : '106.845599',
+            latitude: this.profile?.latitude,
+            longitude: this.profile?.longitude,
             KESEHATAN: 'SEHAT',
             nimLogin: 'M0520008',
           });
