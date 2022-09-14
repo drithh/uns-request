@@ -20,13 +20,18 @@ class OCW {
     login() {
         return __awaiter(this, void 0, void 0, function* () {
             this.sendMessage('loginPage');
-            const testFetch = yield fetch('https://google.com', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-            console.log(testFetch);
+            const loginPage = yield this.agent.get('https://ocw.uns.ac.id/saml/login');
+            this.sendMessage(loginPage.text);
+            const regexAuthState = new RegExp('<input type="hidden" name="AuthState" value="(.*?)"');
+            const authState = regexAuthState.exec(loginPage.text)[1];
+            const login = yield this.agent
+                .post('https://sso.uns.ac.id/module.php/core/loginuserpass.php?')
+                .type('form')
+                .send({ AuthState: authState })
+                .send({ username: this.profile.email })
+                .send({ password: this.profile.password });
+            const regexSamlResponse = new RegExp('<input type="hidden" name="SAMLResponse" value="(.*?)"');
+            this.samlResponse = regexSamlResponse.exec(login.text)[1];
         });
     }
     checkLogin() {
@@ -49,6 +54,7 @@ class OCW {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.login();
             this.sendMessage('Login Berhasil');
+            this.sendMessage('Login Berhasil');
         });
     }
     sendMessage(message) {
@@ -58,6 +64,12 @@ class OCW {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.auth();
             this.sendMessage('Auth Berhasil');
+            const checkAbsen = yield this.checkAbsen();
+            if (typeof checkAbsen === 'string') {
+                this.sendMessage('Mencoba Absen');
+                yield this.createAbsen(checkAbsen);
+            }
+            this.sendMessage('Job Berhasil');
         });
     }
     checkAbsen() {

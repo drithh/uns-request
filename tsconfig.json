@@ -1,4 +1,5 @@
 {
+  "include": ["dist/**/*.ts"],
   "compilerOptions": {
     "lib": ["ES2016", "DOM", "ES2021.String"],
     "target": "ES6",
